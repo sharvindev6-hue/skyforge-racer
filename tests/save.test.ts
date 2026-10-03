@@ -94,7 +94,7 @@ describe('GameStore', () => {
     expect(store.money).toBe(500);
     expect(store.s.ownedCars).toContain(nova.id);
     expect(store.buyCar(nova.id, nova.price)).toBe(false);
-    expect(store.money).toBe(500 - nova.price);
+    expect(store.money).toBe(500); // duplicate purchase is free but refused
     store.equipCar(nova.id);
     expect(store.s.currentCar).toBe(nova.id);
     store.equipCar('not-owned');
