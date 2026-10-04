@@ -149,6 +149,7 @@ export class Menus {
     hint.innerHTML = [
       '<b>Drive</b> <span class="sf-key">W A S D</span> drift with <span class="sf-key">SPACE</span>, boost <span class="sf-key">SHIFT</span>',
       '<b>Transform</b> <span class="sf-key">G</span> car → jet → hover — momentum carries over',
+      '<b>Missions</b> <span class="sf-key">1</span> race · <span class="sf-key">2</span> delivery · <span class="sf-key">3</span> stunt',
       '<b>Camera</b> <span class="sf-key">C</span> · reset <span class="sf-key">R</span> · pause <span class="sf-key">ESC</span>',
     ].join('<br>');
     this.panel.append(h1, sub, money, row, hint);
@@ -348,5 +349,10 @@ export class Menus {
 
   hideAll(): void {
     this.show(null);
+  }
+
+  dispose(): void {
+    this.overlay.remove();
+    this.style.remove();
   }
 }

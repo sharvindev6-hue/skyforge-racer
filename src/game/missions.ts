@@ -298,6 +298,11 @@ export class Missions {
     this.comboTimer = 3;
   }
 
+  /** World positions of active checkpoints (for HUD minimap blips). */
+  gatePositions(): THREE.Vector3[] {
+    return this.checkpoints.map((c) => c.pos);
+  }
+
   /** HUD snapshot. */
   hudState(): { title: string; time: number; score: number; checkpoint: number; total: number } {
     const def = this.active;

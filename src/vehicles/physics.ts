@@ -84,6 +84,8 @@ const GRAVITY = -28;
  * Deterministic given the same inputs + world.
  */
 export class CarPhysics {
+  /** Boost tank capacity multiplier (garage upgrade). Scales fuel drain. */
+  boostCapacity = 1;
   readonly state: CarState;
   private spec: CarSpec;
   private boostBonus = 1;
@@ -145,7 +147,7 @@ export class CarPhysics {
 
     // ---- Engine ----
     const boosting = input.boost && s.boostFuel > 0 && input.throttle > 0;
-    if (boosting) s.boostFuel = Math.max(0, s.boostFuel - 0.35 * dt);
+    if (boosting) s.boostFuel = Math.max(0, s.boostFuel - (0.35 / this.boostCapacity) * dt);
     else s.boostFuel = Math.min(1, s.boostFuel + 0.1 * dt);
     const boostMul = boosting ? 1.6 * this.boostBonus : 1;
 

@@ -94,20 +94,22 @@ describe('Hud', () => {
   it('money counter eases toward the target', () => {
     const { ctx, calls } = stubCtx();
     const hud = new Hud(ctx, []);
+    // Warm up: converge at 1000.
+    for (let i = 0; i < 120; i++) hud.render({ ...frame, money: 1000 });
+    calls.fillText.length = 0;
     hud.render({ ...frame, money: 1000 });
-    hud.render({ ...frame, money: 2000 });
-    // One frame later: eased partway, not yet the target.
+    expect(calls.fillText.find((t) => t.startsWith('$ '))).toContain('1,000');
+    // Jump: one frame later it is eased partway toward 2000, not there yet.
     calls.fillText.length = 0;
     hud.render({ ...frame, money: 2000 });
-    const eased = calls.fillText.find((t) => t.startsWith('$ ')) ?? '';
-    const value = parseInt(eased.replace(/[^0-9]/g, ''), 10);
-    expect(value).toBeGreaterThan(1000);
-    expect(value).toBeLessThan(2000);
-    // Converges after enough frames.
+    const eased = parseInt((calls.fillText.find((t) => t.startsWith('$ ')) ?? '').replace(/[^0-9]/g, ''), 10);
+    expect(eased).toBeGreaterThan(1000);
+    expect(eased).toBeLessThan(2000);
+    // Converges after enough frames (check the LAST recorded frame).
     calls.fillText.length = 0;
     for (let i = 0; i < 120; i++) hud.render({ ...frame, money: 2000 });
-    const settled = calls.fillText.find((t) => t.startsWith('$ ')) ?? '';
-    expect(settled).toContain('2,000');
+    const last = [...calls.fillText].reverse().find((t) => t.startsWith('$ '));
+    expect(last).toContain('2,000');
   });
 
   it('computeBlips filters by radius and tags kinds', () => {

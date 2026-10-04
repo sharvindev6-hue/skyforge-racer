@@ -4,9 +4,46 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>SkyForge Racer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+        touch-action: none;
+      }
+      #game {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      #hud {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 10;
+      }
+      #ui {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        pointer-events: none;
+      }
+      #ui > * {
+        pointer-events: auto;
+      }
+    </style>
   </head>
-  <body style="margin: 0; overflow: hidden; background: #000; touch-action: none">
-    <canvas id="game" style="display: block; width: 100vw; height: 100vh"></canvas>
+  <body>
+    <canvas id="game"></canvas>
+    <canvas id="hud"></canvas>
+    <div id="ui"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
