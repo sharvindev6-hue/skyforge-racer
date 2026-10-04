@@ -260,7 +260,7 @@ export class Hud {
     ctx.fillText('N', nx, ny);
   }
 
-  private drawMoney(w: number, f: HudFrame): void {
+  private drawMoney(w: number, _f: HudFrame): void {
     const { ctx } = this;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'top';
