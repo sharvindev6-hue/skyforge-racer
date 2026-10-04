@@ -419,6 +419,7 @@ export function startGame(canvas: HTMLCanvasElement): GameLoop {
 
   // ---------------------------------------------------------------- boot
   buildWorld(store.s.seed);
+  menus.showTitle();
   engine.onFrame(tick);
   engine.start();
 
