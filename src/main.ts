@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Engine } from './core/engine';
 import { Input } from './core/input';
 import { AudioEngine } from './core/audio';
-import type { SaveStorage } from './core/save';
+import { loadSave, type SaveStorage } from './core/save';
 import { Rng } from './core/rng';
 import { generateWorld, type WorldData } from './world/worldgen';
 import { sampleGround } from './world/collision';
@@ -47,7 +47,12 @@ export function startGame(canvas: HTMLCanvasElement): GameLoop {
     get: (k) => window.localStorage.getItem(k),
     set: (k, v) => window.localStorage.setItem(k, v),
   };
+  const hadSave = loadSave(storage) !== null;
   const store = new GameStore(storage);
+  // First run: pick a quality preset the device can handle.
+  if (!hadSave && (navigator.hardwareConcurrency ?? 8) <= 4) {
+    store.setQuality('low');
+  }
 
   const uiRoot = (document.getElementById('ui') ?? document.body) as HTMLElement;
   const hudCanvas = document.getElementById('hud') as HTMLCanvasElement | null;
@@ -129,6 +134,34 @@ export function startGame(canvas: HTMLCanvasElement): GameLoop {
     }
   }
 
+  /** Quality preset: pixel ratio, shadow maps, draw distance. */
+  function applyQuality(q: 'low' | 'med' | 'high'): void {
+    const r = engine.renderer;
+    r.setPixelRatio(
+      q === 'low' ? 1 : q === 'med' ? Math.min(window.devicePixelRatio, 1.5) : Math.min(window.devicePixelRatio, 2),
+    );
+    const shadows = q !== 'low';
+    if (r.shadowMap.enabled !== shadows) {
+      r.shadowMap.enabled = shadows;
+      engine.world.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(mat)) mat.forEach((m) => (m.needsUpdate = true));
+        else if (mat) mat.needsUpdate = true;
+      });
+    }
+    if (world) {
+      const size = q === 'high' ? 2048 : 1024;
+      world.sky.sun.shadow.mapSize.set(size, size);
+      if (world.sky.sun.shadow.map) {
+        world.sky.sun.shadow.map.dispose();
+        world.sky.sun.shadow.map = null;
+      }
+      const fog = engine.world.fog as THREE.Fog | null;
+      if (fog) fog.far = q === 'low' ? 1500 : q === 'med' ? 2200 : 2800;
+    }
+  }
+
   function buildWorld(seed: number): void {
     teardownWorld();
     world = generateWorld(seed, engine.world);
@@ -177,6 +210,7 @@ export function startGame(canvas: HTMLCanvasElement): GameLoop {
     });
     traffic.onBump = () => missions?.award('nearmiss');
     hud = hudCtx ? new Hud(hudCtx, world.roads) : null;
+    applyQuality(store.s.settings.quality);
   }
 
   // ---------------------------------------------------------------- menu hooks
@@ -199,7 +233,7 @@ export function startGame(canvas: HTMLCanvasElement): GameLoop {
     toaster.show(`${def?.name ?? 'Upgrade'} installed!`, 'good');
   }
   function onQuality(q: 'low' | 'med' | 'high'): void {
-    engine.renderer.setPixelRatio(q === 'low' ? 1 : q === 'med' ? 1.5 : Math.min(window.devicePixelRatio, 2));
+    applyQuality(q);
   }
   function onResume(): void {
     paused = false;
@@ -232,6 +266,33 @@ export function startGame(canvas: HTMLCanvasElement): GameLoop {
     onNewWorld,
   });
   const toaster = new Toaster(uiRoot);
+
+  // On-screen touch buttons -> synthetic key state.
+  const keyBtnDisposers: Array<() => void> = [];
+  for (const el of Array.from(document.querySelectorAll<HTMLButtonElement>('[data-vkey]'))) {
+    const code = el.dataset['vkey'] ?? '';
+    if (!code) continue;
+    const down = (e: Event): void => {
+      e.preventDefault();
+      el.blur();
+      audio.resume();
+      input.virtualDown(code);
+    };
+    const up = (e: Event): void => {
+      e.preventDefault();
+      input.virtualUp(code);
+    };
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointerleave', up);
+    el.addEventListener('pointercancel', up);
+    keyBtnDisposers.push(() => {
+      el.removeEventListener('pointerdown', down);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointerleave', up);
+      el.removeEventListener('pointercancel', up);
+    });
+  }
 
   // ---------------------------------------------------------------- listeners
   const unsubStore = store.subscribe(() => {
@@ -363,6 +424,7 @@ export function startGame(canvas: HTMLCanvasElement): GameLoop {
 
   return {
     dispose(): void {
+      keyBtnDisposers.forEach((d) => d());
       unsubStore();
       window.removeEventListener('resize', sizeHud);
       window.removeEventListener('keydown', onMissionKey);

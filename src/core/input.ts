@@ -43,18 +43,67 @@ export class Input {
   readonly frame: InputFrame = idleFrame();
   private keys: Record<string, boolean> = {};
   private prev = { mode: false, cam: false, pause: false, reset: false };
+  private touches = new Map<
+    number,
+    { side: 'l' | 'r'; x0: number; y0: number; x: number; y: number }
+  >();
   private readonly onKey = (e: KeyboardEvent): void => {
     this.keys[e.code] = e.type === 'keydown';
+  };
+
+  private readonly onTouchStart = (e: TouchEvent): void => {
+    const target = e.target as Element | null;
+    for (const t of Array.from(e.changedTouches)) {
+      if (target?.closest?.('[data-vkey]')) continue; // virtual buttons handle themselves
+      this.touches.set(t.identifier, {
+        side: t.clientX < window.innerWidth / 2 ? 'l' : 'r',
+        x0: t.clientX,
+        y0: t.clientY,
+        x: t.clientX,
+        y: t.clientY,
+      });
+    }
+  };
+
+  private readonly onTouchMove = (e: TouchEvent): void => {
+    for (const t of Array.from(e.changedTouches)) {
+      const rec = this.touches.get(t.identifier);
+      if (rec) {
+        rec.x = t.clientX;
+        rec.y = t.clientY;
+      }
+    }
+  };
+
+  private readonly onTouchEnd = (e: TouchEvent): void => {
+    for (const t of Array.from(e.changedTouches)) this.touches.delete(t.identifier);
   };
 
   constructor() {
     window.addEventListener('keydown', this.onKey);
     window.addEventListener('keyup', this.onKey);
+    window.addEventListener('touchstart', this.onTouchStart, { passive: true });
+    window.addEventListener('touchmove', this.onTouchMove, { passive: true });
+    window.addEventListener('touchend', this.onTouchEnd);
+    window.addEventListener('touchcancel', this.onTouchEnd);
   }
 
   dispose(): void {
     window.removeEventListener('keydown', this.onKey);
     window.removeEventListener('keyup', this.onKey);
+    window.removeEventListener('touchstart', this.onTouchStart);
+    window.removeEventListener('touchmove', this.onTouchMove);
+    window.removeEventListener('touchend', this.onTouchEnd);
+    window.removeEventListener('touchcancel', this.onTouchEnd);
+  }
+
+  /** Synthetic key state for on-screen touch buttons (data-vkey elements). */
+  virtualDown(code: string): void {
+    this.keys[code] = true;
+  }
+
+  virtualUp(code: string): void {
+    this.keys[code] = false;
   }
 
   poll(): void {
@@ -106,6 +155,34 @@ export class Input {
       if (rb && !this.prevPadMode) f.toggleModePressed = true;
       this.prevPadMode = rb;
       break;
+    }
+
+    // Touch: left half = virtual steer stick, right half = throttle/brake drag.
+    let touchSteer = 0;
+    let touchThrottle = 0;
+    let touchBrake = 0;
+    for (const rec of this.touches.values()) {
+      if (rec.side === 'l') {
+        const dx = rec.x - rec.x0;
+        if (Math.abs(dx) > 8) touchSteer = Math.max(-1, Math.min(1, dx / 70));
+      } else {
+        const dy = rec.y - rec.y0;
+        if (dy < -8) touchThrottle = Math.min(1, -dy / 70);
+        else if (dy > 8) touchBrake = Math.min(1, dy / 70);
+      }
+    }
+    if (touchSteer !== 0) {
+      f.steer = touchSteer;
+      f.roll = touchSteer;
+      f.yaw = touchSteer;
+    }
+    if (touchThrottle > 0) {
+      f.throttle = touchThrottle;
+      f.pitch = 1;
+    }
+    if (touchBrake > 0) {
+      f.brake = touchBrake;
+      f.pitch = -1;
     }
   }
 

@@ -38,11 +38,69 @@
       #ui > * {
         pointer-events: auto;
       }
+      #touch {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 15;
+        pointer-events: none;
+        font-family: Inter, system-ui, sans-serif;
+      }
+      .tbtn {
+        pointer-events: auto;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        border: 1px solid rgba(34, 211, 238, 0.45);
+        background: rgba(10, 14, 26, 0.55);
+        color: #a5f3fc;
+        font-weight: 700;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        backdrop-filter: blur(4px);
+        outline: none;
+      }
+      .tbtn:active {
+        background: rgba(34, 211, 238, 0.3);
+      }
+      .touch-cluster {
+        position: absolute;
+        bottom: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .touch-cluster.left {
+        left: 22px;
+      }
+      .touch-cluster.right {
+        right: 22px;
+      }
+      @media (pointer: coarse) {
+        #touch {
+          display: block;
+        }
+      }
     </style>
   </head>
   <body>
     <canvas id="game"></canvas>
     <canvas id="hud"></canvas>
+    <div id="touch">
+      <div class="touch-cluster left">
+        <button data-vkey="Space" class="tbtn">DRIFT</button>
+        <button data-vkey="ShiftLeft" class="tbtn">BOOST</button>
+      </div>
+      <div class="touch-cluster right">
+        <button data-vkey="KeyG" class="tbtn">MODE</button>
+        <button data-vkey="KeyC" class="tbtn">CAM</button>
+        <button data-vkey="KeyR" class="tbtn">RESET</button>
+      </div>
+    </div>
     <div id="ui"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

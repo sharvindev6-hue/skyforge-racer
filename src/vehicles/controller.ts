@@ -15,6 +15,13 @@ export class CameraRig {
   mode: 'chase' | 'hood' | 'orbit' = 'chase';
   private pos = new THREE.Vector3(0, 5, -10);
   private orbitAngle = 0;
+  private shakeAmp = 0;
+  private fov = 62;
+
+  /** Impact/landing shake; decays automatically. Amp in world units. */
+  shake(amp: number): void {
+    this.shakeAmp = Math.max(this.shakeAmp, amp);
+  }
 
   /** Offset behind a yaw-facing object (pure, testable). */
   computeChase(car: { yaw: number }, dist: number): { x: number; z: number } {
@@ -25,7 +32,31 @@ export class CameraRig {
     this.mode = this.mode === 'chase' ? 'hood' : this.mode === 'hood' ? 'orbit' : 'chase';
   }
 
-  update(camera: THREE.PerspectiveCamera, car: CarPhysics, dt: number, airborne: boolean): void {
+  /** FOV kick + impact shake wrapped around the pose update. */
+  update(
+    camera: THREE.PerspectiveCamera,
+    car: CarPhysics,
+    dt: number,
+    airborne: boolean,
+    boosting = false,
+  ): void {
+    this.updatePose(camera, car, dt, airborne);
+
+    const speed01 = THREE.MathUtils.clamp(car.speed / 60, 0, 1);
+    const targetFov = 62 + (boosting ? 9 : 0) + speed01 * 4;
+    this.fov += (targetFov - this.fov) * Math.min(1, 6 * dt);
+    camera.fov = this.fov;
+    camera.updateProjectionMatrix();
+
+    this.shakeAmp = Math.max(0, this.shakeAmp - dt * 1.6);
+    if (this.shakeAmp > 0.002) {
+      camera.position.x += (Math.random() - 0.5) * this.shakeAmp;
+      camera.position.y += (Math.random() - 0.5) * this.shakeAmp * 0.6;
+      camera.position.z += (Math.random() - 0.5) * this.shakeAmp;
+    }
+  }
+
+  private updatePose(camera: THREE.PerspectiveCamera, car: CarPhysics, dt: number, airborne: boolean): void {
     const s = car.state;
     const speed01 = THREE.MathUtils.clamp(car.speed / 60, 0, 1);
     const dist = 9 + speed01 * 3.5 + (s.mode !== 'drive' ? 4 : 0);
@@ -197,6 +228,7 @@ export class VehicleController {
 
   /** Swap the car mesh after a garage purchase. Disposes nothing shared. */
   private lastLat = 0;
+  private prevAirborne = false;
 
   update(dt: number, paused: boolean): void {
     const frame = this.input.frame;
@@ -222,7 +254,12 @@ export class VehicleController {
       if (frame.cameraPressed) this.rig.cycleMode();
       if (frame.resetPressed) this.respawn();
 
+      const preVy = car.state.vel.y;
       car.tick(dt, frame, this.world, FlightModel.tickFly);
+      if (this.prevAirborne && !car.state.airborne && preVy < -3) {
+        this.rig.shake(Math.min(0.55, -preVy / 45));
+      }
+      this.prevAirborne = car.state.airborne;
 
       // Drift smoke: rear wheels when sliding fast on ground.
       const lat = this.lateralSpeed();
@@ -271,8 +308,8 @@ export class VehicleController {
 
     this.smoke.update(dt);
 
-    // Camera follows.
-    this.rig.update(this.camera, car, dt, car.state.airborne);
+    // Camera follows (with boost FOV kick + landing shake).
+    this.rig.update(this.camera, car, dt, car.state.airborne, frame.boost && car.state.boostFuel > 0);
   }
 
   respawn(): void {

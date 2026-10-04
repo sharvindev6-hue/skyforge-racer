@@ -121,11 +121,37 @@ export class Hud {
     const diff = frame.money - this.shownMoney;
     this.shownMoney += Math.abs(diff) < 1 ? diff : diff * 0.12;
 
+    this.drawSpeedLines(w, h, frame);
     this.drawSpeedo(w, h, frame);
     this.drawMinimap(w, frame);
     this.drawMoney(w, frame);
     this.drawMission(w, frame);
     this.drawFps(h, w, frame);
+    ctx.restore();
+  }
+
+  /** Radial speed streaks at high velocity (deterministic, no flicker). */
+  private drawSpeedLines(w: number, h: number, f: HudFrame): void {
+    const intensity = Math.max(0, Math.min(1, (f.speedKmh - 150) / 110));
+    if (intensity <= 0.02) return;
+    const { ctx } = this;
+    const cx = w / 2;
+    const cy = h * 0.42;
+    const diag = Math.max(w, h);
+    ctx.save();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 26; i++) {
+      const ang = (i / 26) * Math.PI * 2 + (i % 3) * 0.13;
+      const r0 = diag * (0.34 + 0.1 * (((i * 37) % 10) / 10));
+      const len = (50 + (((i * 53) % 70) as number)) * intensity;
+      ctx.globalAlpha = intensity * (0.1 + 0.2 * (((i * 29) % 10) / 10));
+      ctx.lineWidth = 2 + (i % 3);
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0);
+      ctx.lineTo(cx + Math.cos(ang) * (r0 + len), cy + Math.sin(ang) * (r0 + len));
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
