@@ -1,0 +1,29 @@
+name: deploy
+on:
+  push: { branches: [main] }
+  workflow_dispatch:
+
+# Opt-in deploy. To enable:
+#   1. Repo Settings -> Secrets and variables -> Actions -> Variables:
+#        ENABLE_VERCEL_DEPLOY = true
+#   2. Add secrets VERCEL_TOKEN (+ VERCEL_ORG_ID / VERCEL_PROJECT_ID from
+#      `vercel link`), or simply connect the repo in the Vercel dashboard
+#      and leave this workflow disabled — dashboard deploys need no secrets.
+jobs:
+  vercel:
+    if: ${{ vars.ENABLE_VERCEL_DEPLOY == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Deploy to Vercel (production)
+        run: npx vercel@latest deploy ./dist --prebuilt --prod --yes --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
